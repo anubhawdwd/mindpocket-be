@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { contentModel, userModel } from "./db.js";
 import bcrypt from "bcrypt";
 import jwt from 'jsonwebtoken';
@@ -8,54 +9,93 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export const app = express();
+
+app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true,                 // if you use cookies
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+app.use(express.json());
+
 const JWT_SECRET = process.env.JWT_SECRET;
 const PORT = process.env.PORT;
 const BaseURL = process.env.BaseURL
 
-console.log("✅ Loaded ENV:", {
-    PORT: process.env.PORT,
-    MONGODB_URI: process.env.MONGODB_URI,
-    JWT_SECRET: process.env.JWT_SECRET,
-});
-app.use(express.json());
 // signUp-Endpoint
 app.post('/api/v1/signup', async (req, res) => {
-    const { userName, password } = req.body;
+    try {
+        let { userName, password } = req.body;
+        if (!userName || !password) {
+            return res.status(400).json({
+                message: "userName and password are required"
+            })
+        }
+        userName = String(userName).trim().toLowerCase();
+        const existingUser = await userModel.findOne({ userName });
+        if (existingUser) {
+            return res.status(409).json({
+                message: "Username already taken"
+            })
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = await userModel.create({
+            userName,
+            password: hashedPassword,
+        })
+        res.status(201).json({
+            message: "Registered Successfully"
+        })
+    } catch (err: any) {
+        if (err?.code === 11000) {
+            return res.status(409).json({ message: "Username already taken" });
+        }
+        console.error("Signup error:", err);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+})
 
-    const hashedPassword = await bcrypt.hash(password, 2);
-    const newUser = await userModel.create({
-        userName,
-        password: hashedPassword,
-    })
-    res.status(200).json({
-        message: "Registered Successfully"
-    })
+app.get('/api', (req, res) => {
+    return res.json({ message: "get" })
 })
 
 // signIn-Endpoint
 app.post('/api/v1/signin', async (req, res) => {
-    const { userName, password } = req.body;
-    const userExists = await userModel.findOne({ userName })
-
-    if (userExists) {
-        const passwordCheck = await bcrypt.compare(password, userExists.password)
-        if (passwordCheck) {
-            if (!JWT_SECRET) {
-                console.error("❌ JWT_SECRET is undefined. Check your .env and dotenv.config()");
-                process.exit(1);
-            }
-            const token = jwt.sign({ userName: userExists.userName }, JWT_SECRET)
-            return res.json({
-                message: `Welcome ${userName}`,
-                jwt_token: token
-            })
-        }
+    try{
+    let { userName, password } = req.body;
+    if (!userName || !password) {
+        return res.status(400).json({ message: "userName and password are required" });
     }
+    userName = String(userName).trim().toLowerCase();
+
+    const userExists = await userModel.findOne({ userName })
     if (!userExists) {
         return res.status(401).json({
             message: "User Not Found"
         })
     }
+    const passwordCheck = await bcrypt.compare(password, userExists.password)
+    if (!passwordCheck) {
+        return res.json({
+            message: " Invalid Credentials"
+        })
+    }
+        if (!JWT_SECRET) {
+            console.error("❌ JWT_SECRET is undefined. Check your .env and dotenv.config()");
+            process.exit(1);
+        }
+        const token = jwt.sign({ userName: userExists.userName }, JWT_SECRET)
+        return res.status(201).json({
+            message: `Welcome ${userName}`,
+            jwt_token: token
+        })
+    } catch (err) {
+    console.error("Signin error:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+
+
 })
 
 // get-content-endpoint
@@ -158,7 +198,7 @@ app.post('/api/v1/content/:id/isPublic', middleware, async (req, res) => {
 
         res.status(200).json({
             message: isPublic ? "Your Note is now Public" : "Your Note is now Private",
-            shareableLink: isPublic ? `${BaseURL + content.shareableId}` : null,
+            shareableLink: isPublic ? `${BaseURL}/share/${content.shareableId}` : null,
             // shareableLink: isPublic ? `http://localhost:3000/share/${content.shareableId}` : null,
         });
     } catch (error) {
