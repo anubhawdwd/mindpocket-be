@@ -56,6 +56,7 @@ app.post('/api/v1/signup', async (req, res) => {
     }
 })
 
+// test-api
 app.get('/api', (req, res) => {
     return res.json({ message: "get" })
 })
@@ -85,7 +86,8 @@ app.post('/api/v1/signin', async (req, res) => {
             console.error("❌ JWT_SECRET is undefined. Check your .env and dotenv.config()");
             process.exit(1);
         }
-        const token = jwt.sign({ userName: userExists.userName }, JWT_SECRET)
+        const token = jwt.sign({  userName: userExists.userName }, JWT_SECRET)
+        // const token = jwt.sign({ id: userExists._id, userName: userExists.userName }, JWT_SECRET)
         return res.status(201).json({
             message: `Welcome ${userName}`,
             jwt_token: token
@@ -112,8 +114,10 @@ app.post('/api/v1/content', middleware, async (req, res) => {
     const userId = req.userId;
     //@ts-ignore
     const userName = req.userName;
-    const { title, link, notes, tags, isPublic } = req.body;
+    const { noteType, title, link, notes, tags, isPublic } = req.body;
+    try{
     const newContentEntry = await contentModel.create({
+        noteType,
         title,
         link,
         notes,
@@ -122,8 +126,12 @@ app.post('/api/v1/content', middleware, async (req, res) => {
         isPublic,
     })
     res.status(200).json({
-        message: "Saved"
+        message: "Saved",
+        data: newContentEntry
     })
+}catch(err){
+    console.log("error during posting new content:-- ",err)
+}
 })
 
 // update-content-endpoint
@@ -131,12 +139,12 @@ app.put('/api/v1/content/:id', middleware, async (req, res) => {
     // @ts-ignore
     const userId = req.userId;
     const contentId = req.params.id;
-    const { title, link, notes, tags, isPublic } = req.body;
+    const { noteType, title, link, notes, tags, isPublic } = req.body;
 
     try {
         const updatedContent = await contentModel.findOneAndUpdate(
             { _id: contentId, userId },
-            { title, link, notes, tags, isPublic },
+            { noteType, title, link, notes, tags, isPublic },
             { new: true }
         )
         if (!updatedContent) {
@@ -198,6 +206,7 @@ app.post('/api/v1/content/:id/isPublic', middleware, async (req, res) => {
 
         res.status(200).json({
             message: isPublic ? "Your Note is now Public" : "Your Note is now Private",
+            shareableId: content.shareableId,
             shareableLink: isPublic ? `${BaseURL}/share/${content.shareableId}` : null,
             // shareableLink: isPublic ? `http://localhost:3000/share/${content.shareableId}` : null,
         });

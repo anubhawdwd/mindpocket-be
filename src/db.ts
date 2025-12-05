@@ -24,6 +24,10 @@ const userSchema = new Schema({
 export const userModel = model("Users", userSchema);
 
 const contentSchema = new Schema({
+    noteType:{
+        type: String,
+        required: true,
+    },
     title:{
         type: String,
         required: true,
@@ -37,7 +41,7 @@ const contentSchema = new Schema({
         timestamp: true
     },
     userId:{
-        type: Object,
+        type: Schema.Types.ObjectId,
         ref: 'Users',
         required: true
     },

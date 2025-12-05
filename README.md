@@ -72,9 +72,8 @@ BaseURL="http://localhost:3000/share/"
 4. Run the server:
 
 ```bash
-npm run dev
-# or
-ts-node index.ts
+npm start
+npx tsc --watch 
 ```
 
 The server should now be running on `http://localhost:3000`.

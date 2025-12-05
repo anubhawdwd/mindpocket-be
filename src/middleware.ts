@@ -22,8 +22,9 @@ export const middleware = async (req: Request, res: Response, next: NextFunction
                 process.exit(1);
             }
         const tokenVerification = jwt.verify(header, JWT_SECRET)
-        console.log(tokenVerification)
-        const userExists = await userModel.findOne({ userName: tokenVerification });
+        console.log("tokenVerify",tokenVerification)
+        // @ts-ignore
+        const userExists = await userModel.findOne({ userName: tokenVerification.userName });
         if (!userExists) {
             return res.status(403).json({
                 message: "Token Error or Server Error!"
