@@ -116,6 +116,7 @@ app.post('/api/v1/content', middleware, async (req, res) => {
     const userName = req.userName;
     const { noteType, title, link, notes, tags, isPublic } = req.body;
     try{
+        const shareableId = isPublic ? uuidv4() : null;
     const newContentEntry = await contentModel.create({
         noteType,
         title,
@@ -124,13 +125,15 @@ app.post('/api/v1/content', middleware, async (req, res) => {
         userId,
         tags,
         isPublic,
+        shareableId,
     })
     res.status(200).json({
         message: "Saved",
         data: newContentEntry
     })
 }catch(err){
-    console.log("error during posting new content:-- ",err)
+    console.log("error during posting new content:-- ",err);
+    res.status(500).json({ message: "Internal Server Error" });
 }
 })
 
@@ -198,7 +201,7 @@ app.post('/api/v1/content/:id/isPublic', middleware, async (req, res) => {
         const content = await contentModel.findOne({ _id: contentId, userId });
         if (!content) return res.status(404).json({ message: "Content not found" })
 
-        if (isPublic && content.shareableId === null) {
+        if (isPublic && !content.shareableId) {
             content.shareableId = uuidv4();
         }
         content.isPublic = isPublic;
@@ -223,12 +226,12 @@ app.get('/share/:shareableId', async (req, res) => {
     const sharedContent = await contentModel.findOne({ shareableId: shareableId, isPublic: true })
 
     if (!sharedContent) {
-        res.status(404).json({
+        return res.status(404).json({
             message: "Either link has been moved to Private or Your link is broken. after confirmation try again."
         })
     }
 
-    res.status(200).json({
+    return res.status(200).json({
         content: sharedContent
     })
 })
